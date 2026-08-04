@@ -1,5 +1,4 @@
-const { Op } = require('sequelize');
-const { Tour, TourImage } = require('../models');
+const { Tour } = require('../models');
 const slugify = require('../utils/slugify');
 
 // GET /api/tours  (public - only active, unless ?all=true and admin)
@@ -15,25 +14,21 @@ const getTours = async (req, res) => {
     }
 
     if (search) {
-      where[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } },
-        { location: { [Op.like]: `%${search}%` } },
+      where.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
       ];
     }
-    if (location) where.location = { [Op.like]: `%${location}%` };
+    if (location) where.location = { $regex: location, $options: 'i' };
     if (category) where.category = category;
     if (minPrice || maxPrice) {
       where.price = {};
-      if (minPrice) where.price[Op.gte] = minPrice;
-      if (maxPrice) where.price[Op.lte] = maxPrice;
+      if (minPrice) where.price.$gte = Number(minPrice);
+      if (maxPrice) where.price.$lte = Number(maxPrice);
     }
 
-    const tours = await Tour.findAll({
-      where,
-      include: [{ model: TourImage, as: 'images' }],
-      order: [['createdAt', 'DESC']],
-    });
+    const tours = await Tour.find(where).sort({ createdAt: -1 });
     res.json(tours);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -43,10 +38,7 @@ const getTours = async (req, res) => {
 // GET /api/tours/:slug
 const getTourBySlug = async (req, res) => {
   try {
-    const tour = await Tour.findOne({
-      where: { slug: req.params.slug },
-      include: [{ model: TourImage, as: 'images' }],
-    });
+    const tour = await Tour.findOne({ slug: req.params.slug });
     if (!tour) return res.status(404).json({ message: 'Tour not found' });
     res.json(tour);
   } catch (err) {
@@ -57,9 +49,7 @@ const getTourBySlug = async (req, res) => {
 // GET /api/tours/id/:id  (admin edit lookup)
 const getTourById = async (req, res) => {
   try {
-    const tour = await Tour.findByPk(req.params.id, {
-      include: [{ model: TourImage, as: 'images' }],
-    });
+    const tour = await Tour.findById(req.params.id);
     if (!tour) return res.status(404).json({ message: 'Tour not found' });
     res.json(tour);
   } catch (err) {
@@ -75,11 +65,12 @@ const createTour = async (req, res) => {
       return res.status(400).json({ message: 'Name and location are required' });
     }
     let slug = slugify(name);
-    const existing = await Tour.findOne({ where: { slug } });
+    const existing = await Tour.findOne({ slug });
     if (existing) slug = slugify(name, Date.now().toString().slice(-5));
 
     const files = req.files || [];
     const coverImage = files[0] ? `/uploads/tours/${files[0].filename}` : null;
+    const images = files.map((f) => ({ imageUrl: `/uploads/tours/${f.filename}` }));
 
     const tour = await Tour.create({
       name,
@@ -93,15 +84,10 @@ const createTour = async (req, res) => {
       status: status || 'active',
       featured: featured === 'true' || featured === true,
       coverImage,
+      images,
     });
 
-    if (files.length) {
-      const images = files.map((f) => ({ tourId: tour.id, imageUrl: `/uploads/tours/${f.filename}` }));
-      await TourImage.bulkCreate(images);
-    }
-
-    const fullTour = await Tour.findByPk(tour.id, { include: [{ model: TourImage, as: 'images' }] });
-    res.status(201).json(fullTour);
+    res.status(201).json(tour);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -110,7 +96,7 @@ const createTour = async (req, res) => {
 // PUT /api/tours/:id (admin)
 const updateTour = async (req, res) => {
   try {
-    const tour = await Tour.findByPk(req.params.id);
+    const tour = await Tour.findById(req.params.id);
 
     if (!tour) {
       return res.status(404).json({ message: 'Tour not found' });
@@ -133,12 +119,8 @@ const updateTour = async (req, res) => {
       let slug = slugify(name);
 
       const existing = await Tour.findOne({
-        where: {
-          slug,
-          id: {
-            [Op.ne]: tour.id,
-          },
-        },
+        slug,
+        _id: { $ne: tour._id },
       });
 
       if (existing) {
@@ -175,25 +157,15 @@ const updateTour = async (req, res) => {
 
       // Save all uploaded images
       const imageData = files.map((file) => ({
-        tourId: tour.id,
         imageUrl: `/uploads/tours/${file.filename}`,
       }));
 
-      await TourImage.bulkCreate(imageData);
+      tour.images.push(...imageData);
     }
 
     await tour.save();
 
-    const updatedTour = await Tour.findByPk(tour.id, {
-      include: [
-        {
-          model: TourImage,
-          as: "images",
-        },
-      ],
-    });
-
-    return res.json(updatedTour);
+    return res.json(tour);
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -206,10 +178,8 @@ const updateTour = async (req, res) => {
 // DELETE /api/tours/:id (admin)
 const deleteTour = async (req, res) => {
   try {
-    const tour = await Tour.findByPk(req.params.id);
+    const tour = await Tour.findByIdAndDelete(req.params.id);
     if (!tour) return res.status(404).json({ message: 'Tour not found' });
-    await TourImage.destroy({ where: { tourId: tour.id } });
-    await tour.destroy();
     res.json({ message: 'Tour deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -219,9 +189,14 @@ const deleteTour = async (req, res) => {
 // DELETE /api/tours/:id/images/:imageId (admin)
 const deleteTourImage = async (req, res) => {
   try {
-    const image = await TourImage.findOne({ where: { id: req.params.imageId, tourId: req.params.id } });
+    const tour = await Tour.findById(req.params.id);
+    if (!tour) return res.status(404).json({ message: 'Tour not found' });
+    
+    const image = tour.images.id(req.params.imageId);
     if (!image) return res.status(404).json({ message: 'Image not found' });
-    await image.destroy();
+    
+    image.deleteOne();
+    await tour.save();
     res.json({ message: 'Image removed' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

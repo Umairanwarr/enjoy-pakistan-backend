@@ -1,5 +1,4 @@
-const { Op } = require('sequelize');
-const { RentalCar, CarImage } = require('../models');
+const { RentalCar } = require('../models');
 const slugify = require('../utils/slugify');
 
 // GET /api/cars (public - only active, unless ?all=true and admin)
@@ -15,25 +14,21 @@ const getCars = async (req, res) => {
     }
 
     if (search) {
-      where[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } },
-        { location: { [Op.like]: `%${search}%` } },
+      where.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
       ];
     }
-    if (location) where.location = { [Op.like]: `%${location}%` };
+    if (location) where.location = { $regex: location, $options: 'i' };
     if (category) where.category = category;
     if (minPrice || maxPrice) {
       where.price = {};
-      if (minPrice) where.price[Op.gte] = minPrice;
-      if (maxPrice) where.price[Op.lte] = maxPrice;
+      if (minPrice) where.price.$gte = Number(minPrice);
+      if (maxPrice) where.price.$lte = Number(maxPrice);
     }
 
-    const cars = await RentalCar.findAll({
-      where,
-      include: [{ model: CarImage, as: 'images' }],
-      order: [['createdAt', 'DESC']],
-    });
+    const cars = await RentalCar.find(where).sort({ createdAt: -1 });
     res.json(cars);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -43,10 +38,7 @@ const getCars = async (req, res) => {
 // GET /api/cars/:slug
 const getCarBySlug = async (req, res) => {
   try {
-    const car = await RentalCar.findOne({
-      where: { slug: req.params.slug },
-      include: [{ model: CarImage, as: 'images' }],
-    });
+    const car = await RentalCar.findOne({ slug: req.params.slug });
     if (!car) return res.status(404).json({ message: 'Rental car not found' });
     res.json(car);
   } catch (err) {
@@ -57,9 +49,7 @@ const getCarBySlug = async (req, res) => {
 // GET /api/cars/id/:id
 const getCarById = async (req, res) => {
   try {
-    const car = await RentalCar.findByPk(req.params.id, {
-      include: [{ model: CarImage, as: 'images' }],
-    });
+    const car = await RentalCar.findById(req.params.id);
     if (!car) return res.status(404).json({ message: 'Rental car not found' });
     res.json(car);
   } catch (err) {
@@ -75,11 +65,12 @@ const createCar = async (req, res) => {
       return res.status(400).json({ message: 'Name and location are required' });
     }
     let slug = slugify(name);
-    const existing = await RentalCar.findOne({ where: { slug } });
+    const existing = await RentalCar.findOne({ slug });
     if (existing) slug = slugify(name, Date.now().toString().slice(-5));
 
     const files = req.files || [];
     const coverImage = files[0] ? `/uploads/cars/${files[0].filename}` : null;
+    const images = files.map((f) => ({ imageUrl: `/uploads/cars/${f.filename}` }));
 
     const car = await RentalCar.create({
       name,
@@ -93,15 +84,10 @@ const createCar = async (req, res) => {
       status: status || 'active',
       featured: featured === 'true' || featured === true,
       coverImage,
+      images,
     });
 
-    if (files.length) {
-      const images = files.map((f) => ({ carId: car.id, imageUrl: `/uploads/cars/${f.filename}` }));
-      await CarImage.bulkCreate(images);
-    }
-
-    const fullCar = await RentalCar.findByPk(car.id, { include: [{ model: CarImage, as: 'images' }] });
-    res.status(201).json(fullCar);
+    res.status(201).json(car);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -110,7 +96,7 @@ const createCar = async (req, res) => {
 // PUT /api/cars/:id (admin)
 const updateCar = async (req, res) => {
   try {
-    const car = await RentalCar.findByPk(req.params.id);
+    const car = await RentalCar.findById(req.params.id);
 
     if (!car) {
       return res.status(404).json({ message: 'Rental car not found' });
@@ -133,12 +119,8 @@ const updateCar = async (req, res) => {
       let slug = slugify(name);
 
       const existing = await RentalCar.findOne({
-        where: {
-          slug,
-          id: {
-            [Op.ne]: car.id,
-          },
-        },
+        slug,
+        _id: { $ne: car._id },
       });
 
       if (existing) {
@@ -175,25 +157,14 @@ const updateCar = async (req, res) => {
 
       // Save uploaded images
       const imageData = files.map((file) => ({
-        carId: car.id,
         imageUrl: `/uploads/cars/${file.filename}`,
       }));
-
-      await CarImage.bulkCreate(imageData);
+      car.images.push(...imageData);
     }
 
     await car.save();
 
-    const updatedCar = await RentalCar.findByPk(car.id, {
-      include: [
-        {
-          model: CarImage,
-          as: "images",
-        },
-      ],
-    });
-
-    return res.json(updatedCar);
+    return res.json(car);
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -206,10 +177,8 @@ const updateCar = async (req, res) => {
 // DELETE /api/cars/:id (admin)
 const deleteCar = async (req, res) => {
   try {
-    const car = await RentalCar.findByPk(req.params.id);
+    const car = await RentalCar.findByIdAndDelete(req.params.id);
     if (!car) return res.status(404).json({ message: 'Rental car not found' });
-    await CarImage.destroy({ where: { carId: car.id } });
-    await car.destroy();
     res.json({ message: 'Rental car deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -219,9 +188,14 @@ const deleteCar = async (req, res) => {
 // DELETE /api/cars/:id/images/:imageId (admin)
 const deleteCarImage = async (req, res) => {
   try {
-    const image = await CarImage.findOne({ where: { id: req.params.imageId, carId: req.params.id } });
+    const car = await RentalCar.findById(req.params.id);
+    if (!car) return res.status(404).json({ message: 'Car not found' });
+    
+    const image = car.images.id(req.params.imageId);
     if (!image) return res.status(404).json({ message: 'Image not found' });
-    await image.destroy();
+    
+    image.deleteOne();
+    await car.save();
     res.json({ message: 'Image removed' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

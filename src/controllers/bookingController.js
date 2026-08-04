@@ -23,7 +23,7 @@ const getBookings = async (req, res) => {
     const where = {};
     if (status) where.status = status;
     if (itemType) where.itemType = itemType;
-    const bookings = await Booking.findAll({ where, order: [['createdAt', 'DESC']] });
+    const bookings = await Booking.find(where).sort({ createdAt: -1 });
     res.json(bookings);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -33,7 +33,7 @@ const getBookings = async (req, res) => {
 // PUT /api/bookings/:id (admin - update status)
 const updateBooking = async (req, res) => {
   try {
-    const booking = await Booking.findByPk(req.params.id);
+    const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     booking.status = req.body.status ?? booking.status;
     await booking.save();
@@ -46,9 +46,8 @@ const updateBooking = async (req, res) => {
 // DELETE /api/bookings/:id (admin)
 const deleteBooking = async (req, res) => {
   try {
-    const booking = await Booking.findByPk(req.params.id);
+    const booking = await Booking.findByIdAndDelete(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    await booking.destroy();
     res.json({ message: 'Booking deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

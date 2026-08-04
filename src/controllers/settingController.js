@@ -15,7 +15,7 @@ const DEFAULTS = {
 // GET /api/settings (public - returns all settings as key:value map)
 const getSettings = async (req, res) => {
   try {
-    const rows = await Setting.findAll();
+    const rows = await Setting.find();
     const settings = { ...DEFAULTS };
     rows.forEach((r) => { settings[r.key] = r.value; });
     res.json(settings);
@@ -29,9 +29,13 @@ const updateSettings = async (req, res) => {
   try {
     const entries = Object.entries(req.body || {});
     for (const [key, value] of entries) {
-      await Setting.upsert({ key, value: String(value ?? '') });
+      await Setting.findOneAndUpdate(
+        { key },
+        { key, value: String(value ?? '') },
+        { upsert: true, new: true }
+      );
     }
-    const rows = await Setting.findAll();
+    const rows = await Setting.find();
     const settings = { ...DEFAULTS };
     rows.forEach((r) => { settings[r.key] = r.value; });
     res.json(settings);

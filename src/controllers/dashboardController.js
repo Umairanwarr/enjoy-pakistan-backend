@@ -9,17 +9,17 @@ const getStats = async (req, res) => {
       totalBookings, newBookings,
       totalMessages, unreadMessages,
     ] = await Promise.all([
-      Tour.count(),
-      Tour.count({ where: { status: 'active' } }),
-      RentalCar.count(),
-      RentalCar.count({ where: { status: 'active' } }),
-      Booking.count(),
-      Booking.count({ where: { status: 'new' } }),
-      ContactMessage.count(),
-      ContactMessage.count({ where: { isRead: false } }),
+      Tour.countDocuments(),
+      Tour.countDocuments({ status: 'active' }),
+      RentalCar.countDocuments(),
+      RentalCar.countDocuments({ status: 'active' }),
+      Booking.countDocuments(),
+      Booking.countDocuments({ status: 'new' }),
+      ContactMessage.countDocuments(),
+      ContactMessage.countDocuments({ isRead: false }),
     ]);
 
-    const recentBookings = await Booking.findAll({ order: [['createdAt', 'DESC']], limit: 5 });
+    const recentBookings = await Booking.find().sort({ createdAt: -1 }).limit(5);
 
     res.json({
       tours: { total: totalTours, active: activeTours },

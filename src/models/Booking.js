@@ -1,15 +1,23 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const Booking = sequelize.define('Booking', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  itemType: { type: DataTypes.ENUM('tour', 'car'), allowNull: false },
-  itemId: { type: DataTypes.INTEGER, allowNull: false },
-  itemName: { type: DataTypes.STRING, allowNull: false },
-  customerName: { type: DataTypes.STRING, allowNull: true },
-  customerPhone: { type: DataTypes.STRING, allowNull: true },
-  message: { type: DataTypes.TEXT, allowNull: true },
-  status: { type: DataTypes.ENUM('new', 'contacted', 'confirmed', 'cancelled'), defaultValue: 'new' },
-}, { tableName: 'bookings' });
+const bookingSchema = new mongoose.Schema({
+  itemType: { type: String, enum: ['tour', 'car'], required: true },
+  itemId: { type: String, required: true },
+  itemName: { type: String, required: true },
+  customerName: { type: String, default: null },
+  customerPhone: { type: String, default: null },
+  message: { type: String, default: null },
+  status: { type: String, enum: ['new', 'contacted', 'confirmed', 'cancelled'], default: 'new' },
+}, {
+  timestamps: true,
+  toJSON: {
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
+});
 
+const Booking = mongoose.model('Booking', bookingSchema);
 module.exports = Booking;

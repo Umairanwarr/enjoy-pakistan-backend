@@ -1,19 +1,39 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const mongoose = require('mongoose');
 
-const Tour = sequelize.define('Tour', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  name: { type: DataTypes.STRING, allowNull: false },
-  slug: { type: DataTypes.STRING, allowNull: false, unique: true },
-  description: { type: DataTypes.TEXT, allowNull: true },
-  location: { type: DataTypes.STRING, allowNull: false },
-  category: { type: DataTypes.STRING, allowNull: true, defaultValue: 'General' },
-  price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
-  duration: { type: DataTypes.STRING, allowNull: true },
-  availability: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-  status: { type: DataTypes.ENUM('active', 'inactive'), defaultValue: 'active' },
-  featured: { type: DataTypes.BOOLEAN, defaultValue: false },
-  coverImage: { type: DataTypes.STRING, allowNull: true },
-}, { tableName: 'tours' });
+const tourImageSchema = new mongoose.Schema({
+  imageUrl: { type: String, required: true },
+}, {
+  toJSON: {
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+    }
+  }
+});
 
+const tourSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  description: { type: String, default: null },
+  location: { type: String, required: true },
+  category: { type: String, default: 'General' },
+  price: { type: Number, required: true, default: 0 },
+  duration: { type: String, default: null },
+  availability: { type: Number, required: true, default: 0 },
+  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  featured: { type: Boolean, default: false },
+  coverImage: { type: String, default: null },
+  images: [tourImageSchema],
+}, {
+  timestamps: true,
+  toJSON: {
+    transform: (doc, ret) => {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+    }
+  }
+});
+
+const Tour = mongoose.model('Tour', tourSchema);
 module.exports = Tour;

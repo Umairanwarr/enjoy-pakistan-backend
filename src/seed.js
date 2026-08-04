@@ -1,19 +1,16 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const sequelize = require('./config/db');
+const mongoose = require('mongoose');
 const { Admin, Setting } = require('./models');
 const { DEFAULTS } = require('./controllers/settingController');
 
 const run = async () => {
   try {
-    await sequelize.authenticate();
-    console.log('✅ MySQL connection established.');
-
-    await sequelize.sync({ alter: true });
-    console.log('✅ Tables synced.');
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('✅ MongoDB connection established.');
 
     const email = process.env.ADMIN_EMAIL || 'admin@enjoypakistantour.com';
-    const existing = await Admin.findOne({ where: { email } });
+    const existing = await Admin.findOne({ email });
 
     if (existing) {
       console.log(`ℹ️  Admin with email ${email} already exists. Skipping admin creation.`);
@@ -30,8 +27,11 @@ const run = async () => {
 
     // Seed default settings if not present
     for (const [key, value] of Object.entries(DEFAULTS)) {
-      const [row, created] = await Setting.findOrCreate({ where: { key }, defaults: { value } });
-      if (created) console.log(`✅ Setting seeded: ${key}`);
+      const existingSetting = await Setting.findOne({ key });
+      if (!existingSetting) {
+        await Setting.create({ key, value });
+        console.log(`✅ Setting seeded: ${key}`);
+      }
     }
 
     console.log('🎉 Seeding complete.');
