@@ -18,7 +18,7 @@ const toAbsoluteUrl = (req, relativePath) => {
  */
 const absolutifyImages = (req, doc) => {
   if (!doc) return doc;
-  const obj = doc.toObject ? doc.toObject() : { ...doc };
+  const obj = doc.toJSON ? doc.toJSON() : { ...doc };
   if (obj.coverImage) obj.coverImage = toAbsoluteUrl(req, obj.coverImage);
   if (Array.isArray(obj.images)) {
     obj.images = obj.images.map((img) => ({
