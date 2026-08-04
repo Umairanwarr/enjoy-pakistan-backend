@@ -33,3 +33,7 @@ waitForPort = 5000
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "src/server.js"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
