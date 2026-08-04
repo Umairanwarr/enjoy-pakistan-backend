@@ -70,8 +70,8 @@ const createTour = async (req, res) => {
     if (existing) slug = slugify(name, Date.now().toString().slice(-5));
 
     const files = req.files || [];
-    const coverImage = files[0] ? `/uploads/tours/${files[0].filename}` : null;
-    const images = files.map((f) => ({ imageUrl: `/uploads/tours/${f.filename}` }));
+    const coverImage = files[0] ? files[0].path : null;
+    const images = files.map((f) => ({ imageUrl: f.path }));
 
     const tour = await Tour.create({
       name,
@@ -154,11 +154,11 @@ const updateTour = async (req, res) => {
 
     if (files.length > 0) {
       // Update cover image with first uploaded image
-      tour.coverImage = `/uploads/tours/${files[0].filename}`;
+      tour.coverImage = files[0].path;
 
       // Save all uploaded images
       const imageData = files.map((file) => ({
-        imageUrl: `/uploads/tours/${file.filename}`,
+        imageUrl: file.path,
       }));
 
       tour.images.push(...imageData);

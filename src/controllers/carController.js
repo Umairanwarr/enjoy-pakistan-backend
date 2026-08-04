@@ -70,8 +70,8 @@ const createCar = async (req, res) => {
     if (existing) slug = slugify(name, Date.now().toString().slice(-5));
 
     const files = req.files || [];
-    const coverImage = files[0] ? `/uploads/cars/${files[0].filename}` : null;
-    const images = files.map((f) => ({ imageUrl: `/uploads/cars/${f.filename}` }));
+    const coverImage = files[0] ? files[0].path : null;
+    const images = files.map((f) => ({ imageUrl: f.path }));
 
     const car = await RentalCar.create({
       name,
@@ -154,11 +154,11 @@ const updateCar = async (req, res) => {
 
     if (files.length > 0) {
       // Update cover image with first uploaded image
-      car.coverImage = `/uploads/cars/${files[0].filename}`;
+      car.coverImage = files[0].path;
 
       // Save uploaded images
       const imageData = files.map((file) => ({
-        imageUrl: `/uploads/cars/${file.filename}`,
+        imageUrl: file.path,
       }));
       car.images.push(...imageData);
     }
