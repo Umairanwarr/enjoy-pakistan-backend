@@ -3,7 +3,7 @@ modules = ["nodejs-24"]
 [userenv]
 
 [userenv.shared]
-CLIENT_URL = "http://localhost:5173"
+CLIENT_URL = "https://www.enjoypakistantour.com"
 DEFAULT_WHATSAPP_NUMBER = "923001234567"
 JWT_EXPIRES_IN = "7d"
 NODE_ENV = "production"
