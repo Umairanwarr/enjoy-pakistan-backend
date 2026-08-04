@@ -29,6 +29,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+app.get('/', (req, res) => res.json({ status: 'ok', message: 'Enjoy Pakistan Tour API is running' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'Enjoy Pakistan Tour API is running' }));
 
 // --- Optional: serve the built React app from a single server in production ---
