@@ -1,0 +1,8 @@
+node_modules/
+.env
+uploads/*
+!uploads/.gitkeep
+!uploads/tours/.gitkeep
+!uploads/cars/.gitkeep
+*.log
+.DS_Store
