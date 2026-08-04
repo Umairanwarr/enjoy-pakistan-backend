@@ -1,5 +1,6 @@
 const { RentalCar } = require('../models');
 const slugify = require('../utils/slugify');
+const { absolutifyImages } = require('../utils/absoluteUrl');
 
 // GET /api/cars (public - only active, unless ?all=true and admin)
 const getCars = async (req, res) => {
@@ -29,7 +30,7 @@ const getCars = async (req, res) => {
     }
 
     const cars = await RentalCar.find(where).sort({ createdAt: -1 });
-    res.json(cars);
+    res.json(cars.map((c) => absolutifyImages(req, c)));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -40,7 +41,7 @@ const getCarBySlug = async (req, res) => {
   try {
     const car = await RentalCar.findOne({ slug: req.params.slug });
     if (!car) return res.status(404).json({ message: 'Rental car not found' });
-    res.json(car);
+    res.json(absolutifyImages(req, car));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -51,7 +52,7 @@ const getCarById = async (req, res) => {
   try {
     const car = await RentalCar.findById(req.params.id);
     if (!car) return res.status(404).json({ message: 'Rental car not found' });
-    res.json(car);
+    res.json(absolutifyImages(req, car));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -87,7 +88,7 @@ const createCar = async (req, res) => {
       images,
     });
 
-    res.status(201).json(car);
+    res.status(201).json(absolutifyImages(req, car));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -164,7 +165,7 @@ const updateCar = async (req, res) => {
 
     await car.save();
 
-    return res.json(car);
+    return res.json(absolutifyImages(req, car));
   } catch (err) {
     console.error(err);
     return res.status(500).json({

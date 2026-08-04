@@ -1,5 +1,6 @@
 const { Tour } = require('../models');
 const slugify = require('../utils/slugify');
+const { absolutifyImages } = require('../utils/absoluteUrl');
 
 // GET /api/tours  (public - only active, unless ?all=true and admin)
 const getTours = async (req, res) => {
@@ -29,7 +30,7 @@ const getTours = async (req, res) => {
     }
 
     const tours = await Tour.find(where).sort({ createdAt: -1 });
-    res.json(tours);
+    res.json(tours.map((t) => absolutifyImages(req, t)));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -40,7 +41,7 @@ const getTourBySlug = async (req, res) => {
   try {
     const tour = await Tour.findOne({ slug: req.params.slug });
     if (!tour) return res.status(404).json({ message: 'Tour not found' });
-    res.json(tour);
+    res.json(absolutifyImages(req, tour));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -51,7 +52,7 @@ const getTourById = async (req, res) => {
   try {
     const tour = await Tour.findById(req.params.id);
     if (!tour) return res.status(404).json({ message: 'Tour not found' });
-    res.json(tour);
+    res.json(absolutifyImages(req, tour));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -87,7 +88,7 @@ const createTour = async (req, res) => {
       images,
     });
 
-    res.status(201).json(tour);
+    res.status(201).json(absolutifyImages(req, tour));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -165,7 +166,7 @@ const updateTour = async (req, res) => {
 
     await tour.save();
 
-    return res.json(tour);
+    return res.json(absolutifyImages(req, tour));
   } catch (err) {
     console.error(err);
     return res.status(500).json({
