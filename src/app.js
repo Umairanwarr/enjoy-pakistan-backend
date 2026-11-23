@@ -47,6 +47,11 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+// Backward-compatible paths used by the existing production frontend.
+app.use('/settings', settingRoutes);
+app.use('/cars', carRoutes);
+app.use('/tours', tourRoutes);
+
 app.get('/', (req, res) => res.json({ status: 'ok', message: 'Enjoy Pakistan Tour API is running' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'Enjoy Pakistan Tour API is running' }));
 
