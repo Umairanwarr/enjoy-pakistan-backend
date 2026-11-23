@@ -13,7 +13,25 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || process.env.CLIENT_URL || '*', credentials: true }));
+const allowedOrigins = new Set(
+  (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || process.env.CLIENT_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+
+// Keep local development available while allowing the production website origins.
+allowedOrigins.add('http://localhost:5173');
+allowedOrigins.add('https://enjoypakistantour.com');
+allowedOrigins.add('https://www.enjoypakistantour.com');
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(new Error('Origin is not allowed by CORS'));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
